@@ -3188,8 +3188,9 @@ static bool pgdat_balanced(pg_data_t *pgdat, int order, int classzone_idx)
 	 * need balancing by definition. This can happen if a zone-restricted
 	 * allocation tries to wake a remote kswapd.
 	 */
-	if (mark == -1)
-		return true;
+	clear_bit(PGDAT_CONGESTED, &zone->zone_pgdat->flags);
+	clear_bit(PGDAT_DIRTY, &zone->zone_pgdat->flags);
+	clear_bit(PGDAT_WRITEBACK, &zone->zone_pgdat->flags);
 
 	return false;
 }
