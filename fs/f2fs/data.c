@@ -493,7 +493,7 @@ next:
 		spin_unlock(&io->io_lock);
 	}
 
-	if (fio->old_blkaddr != NEW_ADDR)
+	if (is_valid_blkaddr(fio->old_blkaddr))
 		verify_block_addr(fio, fio->old_blkaddr);
 	verify_block_addr(fio, fio->new_blkaddr);
 
@@ -1074,7 +1074,7 @@ next_dnode:
 next_block:
 	blkaddr = datablock_addr(dn.inode, dn.node_page, dn.ofs_in_node);
 
-	if (blkaddr == NEW_ADDR || blkaddr == NULL_ADDR) {
+	if (!is_valid_blkaddr(blkaddr)) {
 		if (create) {
 			if (unlikely(f2fs_cp_error(sbi))) {
 				err = -EIO;
@@ -1807,15 +1807,24 @@ got_it:
 	if (err)
 		goto out_writepage;
 
-	set_page_writeback(page);
-	ClearPageError(page);
-
-	/* LFS mode write path */
-	write_data_page(&dn, fio);
-	trace_f2fs_do_write_data_page(page, OPU);
-	set_inode_flag(inode, FI_APPEND_WRITE);
-	if (page->index == 0)
-		set_inode_flag(inode, FI_FIRST_BLOCK_WRITTEN);
+	/*
+	 * If current allocation needs SSR,
+	 * it had better in-place writes for updated data.
+	 */
+	if (unlikely(is_valid_blkaddr(fio->old_blkaddr) &&
+			!is_cold_data(page) &&
+			!IS_ATOMIC_WRITTEN_PAGE(page) &&
+			need_inplace_update(inode))) {
+		rewrite_data_page(fio);
+		set_inode_flag(inode, FI_UPDATE_WRITE);
+		trace_f2fs_do_write_data_page(page, IPU);
+	} else {
+		write_data_page(&dn, fio);
+		trace_f2fs_do_write_data_page(page, OPU);
+		set_inode_flag(inode, FI_APPEND_WRITE);
+		if (page->index == 0)
+			set_inode_flag(inode, FI_FIRST_BLOCK_WRITTEN);
+	}
 out_writepage:
 	f2fs_put_dnode(&dn);
 out:

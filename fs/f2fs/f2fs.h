@@ -2628,6 +2628,13 @@ static inline void f2fs_update_iostat(struct f2fs_sb_info *sbi,
 	spin_unlock(&sbi->iostat_lock);
 }
 
+static inline bool is_valid_blkaddr(block_t blkaddr)
+{
+	if (blkaddr == NEW_ADDR || blkaddr == NULL_ADDR)
+		return false;
+	return true;
+}
+
 /*
  * file.c
  */
@@ -2841,36 +2848,30 @@ enum rw_hint io_type_to_rw_hint(struct f2fs_sb_info *sbi, enum page_type type,
 /*
  * checkpoint.c
  */
-void f2fs_stop_checkpoint(struct f2fs_sb_info *sbi, bool end_io);
-struct page *grab_meta_page(struct f2fs_sb_info *sbi, pgoff_t index);
-struct page *get_meta_page(struct f2fs_sb_info *sbi, pgoff_t index);
-struct page *get_tmp_page(struct f2fs_sb_info *sbi, pgoff_t index);
-bool is_valid_blkaddr(struct f2fs_sb_info *sbi, block_t blkaddr, int type);
-int ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
-			int type, bool sync);
-void ra_meta_pages_cond(struct f2fs_sb_info *sbi, pgoff_t index);
-long sync_meta_pages(struct f2fs_sb_info *sbi, enum page_type type,
-			long nr_to_write, enum iostat_type io_type);
-void add_ino_entry(struct f2fs_sb_info *sbi, nid_t ino, int type);
-void remove_ino_entry(struct f2fs_sb_info *sbi, nid_t ino, int type);
-void release_ino_entry(struct f2fs_sb_info *sbi, bool all);
-bool exist_written_data(struct f2fs_sb_info *sbi, nid_t ino, int mode);
-void set_dirty_device(struct f2fs_sb_info *sbi, nid_t ino,
-					unsigned int devidx, int type);
-bool is_dirty_device(struct f2fs_sb_info *sbi, nid_t ino,
-					unsigned int devidx, int type);
-int f2fs_sync_inode_meta(struct f2fs_sb_info *sbi);
-int acquire_orphan_inode(struct f2fs_sb_info *sbi);
-void release_orphan_inode(struct f2fs_sb_info *sbi);
-void add_orphan_inode(struct inode *inode);
-void remove_orphan_inode(struct f2fs_sb_info *sbi, nid_t ino);
-int recover_orphan_inodes(struct f2fs_sb_info *sbi);
-int get_valid_checkpoint(struct f2fs_sb_info *sbi);
-void update_dirty_page(struct inode *inode, struct page *page);
-void remove_dirty_inode(struct inode *inode);
-int sync_dirty_inodes(struct f2fs_sb_info *sbi, enum inode_type type);
-int write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc);
-void init_ino_entry_info(struct f2fs_sb_info *sbi);
+void f2fs_stop_checkpoint(struct f2fs_sb_info *, bool);
+struct page *grab_meta_page(struct f2fs_sb_info *, pgoff_t);
+struct page *get_meta_page(struct f2fs_sb_info *, pgoff_t);
+struct page *get_tmp_page(struct f2fs_sb_info *, pgoff_t);
+bool is_valid_meta_blkaddr(struct f2fs_sb_info *sbi, block_t blkaddr, int type);
+int ra_meta_pages(struct f2fs_sb_info *, block_t, int, int, bool);
+void ra_meta_pages_cond(struct f2fs_sb_info *, pgoff_t);
+long sync_meta_pages(struct f2fs_sb_info *, enum page_type, long);
+void add_ino_entry(struct f2fs_sb_info *, nid_t, int type);
+void remove_ino_entry(struct f2fs_sb_info *, nid_t, int type);
+void release_ino_entry(struct f2fs_sb_info *, bool);
+bool exist_written_data(struct f2fs_sb_info *, nid_t, int);
+int f2fs_sync_inode_meta(struct f2fs_sb_info *);
+int acquire_orphan_inode(struct f2fs_sb_info *);
+void release_orphan_inode(struct f2fs_sb_info *);
+void add_orphan_inode(struct inode *);
+void remove_orphan_inode(struct f2fs_sb_info *, nid_t);
+int recover_orphan_inodes(struct f2fs_sb_info *);
+int get_valid_checkpoint(struct f2fs_sb_info *);
+void update_dirty_page(struct inode *, struct page *);
+void remove_dirty_inode(struct inode *);
+int sync_dirty_inodes(struct f2fs_sb_info *, enum inode_type);
+int write_checkpoint(struct f2fs_sb_info *, struct cp_control *);
+void init_ino_entry_info(struct f2fs_sb_info *);
 int __init create_checkpoint_caches(void);
 void destroy_checkpoint_caches(void);
 
