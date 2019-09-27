@@ -117,11 +117,12 @@ static const struct spm_reg_data spm_reg_8064_cpu = {
 
 static DEFINE_PER_CPU(struct spm_driver_data *, cpu_spm_drv);
 
-typedef int (*idle_fn)(void);
-static DEFINE_PER_CPU(idle_fn*, qcom_idle_ops);
+	__raw_writel(dev->reg_shadow[reg_index],
+		dev->reg_base_addr + dev->reg_offsets[reg_index]);
+}
 
-static inline void spm_register_write(struct spm_driver_data *drv,
-					enum spm_reg reg, u32 val)
+static void msm_spm_drv_load_shadow(struct msm_spm_driver_data *dev,
+		unsigned int reg_index)
 {
 	if (drv->reg_data->reg_offset[reg])
 		writel_relaxed(val, drv->reg_base +
