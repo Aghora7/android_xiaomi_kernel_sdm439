@@ -6,12 +6,8 @@ else
 	KERNEL_BUILD := 0
 endif
 
-ifeq ($(TARGET_AW87519), y)
+ifeq ($(CONFIG_TARGET_AW87519), y)
 	CDEFINES += -DAW87519_PA
-endif
-
-ifeq ($(TARGET_AW87329), y)
-	CDEFINES += -DAW87329_PA
 endif
 
 ifeq ($(KERNEL_BUILD), 1)
