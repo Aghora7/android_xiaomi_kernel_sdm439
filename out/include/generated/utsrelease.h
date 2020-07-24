@@ -1,1 +1,1 @@
-#define UTS_RELEASE "4.9.249-AOiSPdev-g3e28aac9693b"
+#define UTS_RELEASE "4.9.249-AOiSPdev-g42d27594bd01-dirty"
