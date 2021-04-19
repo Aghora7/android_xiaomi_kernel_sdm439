@@ -54,8 +54,6 @@ static void cache_init(struct cache_head *h, struct cache_detail *detail)
 	h->last_refresh = now;
 }
 
-static void cache_fresh_locked(struct cache_head *head, time_t expiry,
-				struct cache_detail *detail);
 static void cache_fresh_unlocked(struct cache_head *head,
 				struct cache_detail *detail);
 

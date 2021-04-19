@@ -246,7 +246,11 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 #define __declare_arg_6(a0, a1, a2, a3, a4, a5, a6, res)		\
 	typeof(a6) __a6 = a6;						\
 	__declare_arg_5(a0, a1, a2, a3, a4, a5, res);			\
+	register unsigned long r6 asm("r6") = __a6
+
+#define __declare_arg_7(a0, a1, a2, a3, a4, a5, a6, a7, res)		\
 	typeof(a7) __a7 = a7;						\
+	__declare_arg_6(a0, a1, a2, a3, a4, a5, a6, res);		\
 	register unsigned long r7 asm("r7") = __a7
 
 #define ___declare_args(count, ...) __declare_arg_ ## count(__VA_ARGS__)

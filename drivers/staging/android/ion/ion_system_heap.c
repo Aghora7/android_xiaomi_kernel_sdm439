@@ -789,7 +789,8 @@ static int ion_system_heap_create_pools(struct device *dev,
 					struct ion_page_pool **pools)
 {
 	int i;
-	for (i = 0; i < num_orders; i++) {
+
+	for (i = 0; i < NUM_ORDERS; i++) {
 		struct ion_page_pool *pool;
 		gfp_t gfp_flags = low_order_gfp_flags;
 

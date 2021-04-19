@@ -307,8 +307,7 @@ static void dwc3_frame_length_adjustment(struct dwc3 *dwc)
 
 	reg = dwc3_readl(dwc->regs, DWC3_GFLADJ);
 	dft = reg & DWC3_GFLADJ_30MHZ_MASK;
-	if (!dev_WARN_ONCE(dwc->dev, dft == dwc->fladj,
-	    "request value same as default, ignoring\n")) {
+	if (dft != dwc->fladj) {
 		reg &= ~DWC3_GFLADJ_30MHZ_MASK;
 		reg |= DWC3_GFLADJ_30MHZ_SDBND_SEL | dwc->fladj;
 		dwc3_writel(dwc->regs, DWC3_GFLADJ, reg);
@@ -1092,7 +1091,8 @@ int dwc3_core_pre_init(struct dwc3 *dwc)
 		}
 	}
 
-	return ret;
+	/* de-assert DRVVBUS for HOST and OTG mode */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
@@ -1317,6 +1317,28 @@ static int dwc3_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_forbid(dev);
 
+	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
+	if (ret) {
+		dev_err(dwc->dev, "failed to allocate event buffers\n");
+		ret = -ENOMEM;
+		goto err2;
+	}
+
+	ret = dwc3_get_dr_mode(dwc);
+	if (ret)
+		goto err3;
+
+	ret = dwc3_alloc_scratch_buffers(dwc);
+	if (ret)
+		goto err3;
+
+	ret = dwc3_core_init(dwc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to initialize core: %d\n", ret);
+		goto err4;
+	}
+
 	/* Check the maximum_speed parameter */
 	switch (dwc->maximum_speed) {
 	case USB_SPEED_LOW:
@@ -1360,10 +1382,20 @@ err5:
 	dwc3_event_buffers_cleanup(dwc);
 	dwc3_ulpi_exit(dwc);
 
-	dwc->dwc_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
-					dev_name(dwc->dev), 0);
-	if (!dwc->dwc_ipc_log_ctxt)
-		dev_err(dwc->dev, "Error getting ipc_log_ctxt\n");
+	usb_phy_shutdown(dwc->usb2_phy);
+	usb_phy_shutdown(dwc->usb3_phy);
+	phy_exit(dwc->usb2_generic_phy);
+	phy_exit(dwc->usb3_generic_phy);
+
+	usb_phy_set_suspend(dwc->usb2_phy, 1);
+	usb_phy_set_suspend(dwc->usb3_phy, 1);
+	phy_power_off(dwc->usb2_generic_phy);
+	phy_power_off(dwc->usb3_generic_phy);
+
+	dwc3_ulpi_exit(dwc);
+
+err4:
+	dwc3_free_scratch_buffers(dwc);
 
 	dwc3_instance[count] = dwc;
 	dwc->index = count;
@@ -1406,11 +1438,9 @@ static int dwc3_remove(struct platform_device *pdev)
 	dwc3_core_exit(dwc);
 	dwc3_ulpi_exit(dwc);
 
-	destroy_workqueue(dwc->dwc_wq);
-
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_allow(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 
 	dwc3_free_event_buffers(dwc);
 	dwc3_free_scratch_buffers(dwc);

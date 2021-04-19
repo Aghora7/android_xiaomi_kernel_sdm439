@@ -16,7 +16,11 @@
 #ifndef __ASM_PERCPU_H
 #define __ASM_PERCPU_H
 
+#include <asm/alternative.h>
+
+static inline void set_my_cpu_offset(unsigned long off)
 {
+	asm volatile(ALTERNATIVE("msr tpidr_el1, %0",
 				 "msr tpidr_el2, %0",
 				 ARM64_HAS_VIRT_HOST_EXTN)
 			:: "r" (off) : "memory");

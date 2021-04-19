@@ -165,9 +165,13 @@ void __init of_populate_phandle_cache_early(void)
 #ifndef CONFIG_MODULES
 static int __init of_free_phandle_cache(void)
 {
-	unsigned long flags;
+	const char *name;
+	struct kobject *parent;
+	struct property *pp;
+	int rc;
 
-	raw_spin_lock_irqsave(&devtree_lock, flags);
+	if (!of_kset)
+		return 0;
 
 	kfree(phandle_cache);
 	phandle_cache = NULL;
@@ -2257,7 +2261,7 @@ struct device_node *of_find_next_cache_node(const struct device_node *np)
 	/* OF on pmac has nodes instead of properties named "l2-cache"
 	 * beneath CPU nodes.
 	 */
-	if (!strcmp(np->type, "cpu"))
+	if (IS_ENABLED(CONFIG_PPC_PMAC) && !strcmp(np->type, "cpu"))
 		for_each_child_of_node(np, child)
 			if (!strcmp(child->type, "cache"))
 				return child;

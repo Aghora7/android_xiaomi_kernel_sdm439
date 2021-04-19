@@ -137,7 +137,7 @@ MODULE_PARM_DESC(tx_qmult, "Additional queue length multiplier for tx");
 static inline int qlen(struct usb_gadget *gadget, unsigned qmult)
 {
 	if (gadget_is_dualspeed(gadget) && (gadget->speed == USB_SPEED_HIGH ||
-					    gadget->speed == USB_SPEED_SUPER))
+					    gadget->speed >= USB_SPEED_SUPER))
 		return qmult * DEFAULT_QLEN;
 	else
 		return DEFAULT_QLEN;
@@ -263,7 +263,8 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	else
 		out = NULL;
 
-	if (!out) {
+	if (!out)
+	{
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return -ENOTCONN;
 	}

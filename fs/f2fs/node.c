@@ -1907,47 +1907,6 @@ static void __move_free_nid(struct f2fs_sb_info *sbi, struct free_nid *i,
 	struct nat_entry *ne;
 	int err = -EINVAL;
 
-	f2fs_bug_on(sbi, org_state != i->state);
-	i->state = dst_state;
-	nm_i->nid_cnt[org_state]--;
-	nm_i->nid_cnt[dst_state]++;
-
-	switch (dst_state) {
-	case PREALLOC_NID:
-		list_del(&i->list);
-		break;
-	case FREE_NID:
-		list_add_tail(&i->list, &nm_i->free_nid_list);
-		break;
-	default:
-		BUG_ON(1);
-	}
-}
-
-static void update_free_nid_bitmap(struct f2fs_sb_info *sbi, nid_t nid,
-							bool set, bool build)
-{
-	struct f2fs_nm_info *nm_i = NM_I(sbi);
-	unsigned int nat_ofs = NAT_BLOCK_OFFSET(nid);
-	unsigned int nid_ofs = nid - START_NID(nid);
-
-	if (!test_bit_le(nat_ofs, nm_i->nat_block_bitmap))
-		return;
-
-	if (set) {
-		if (test_bit_le(nid_ofs, nm_i->free_nid_bitmap[nat_ofs]))
-			return;
-		__set_bit_le(nid_ofs, nm_i->free_nid_bitmap[nat_ofs]);
-		nm_i->free_nid_count[nat_ofs]++;
-	} else {
-		if (!test_bit_le(nid_ofs, nm_i->free_nid_bitmap[nat_ofs]))
-			return;
-		__clear_bit_le(nid_ofs, nm_i->free_nid_bitmap[nat_ofs]);
-		if (!build)
-			nm_i->free_nid_count[nat_ofs]--;
-	}
-}
-
 /* return if the nid is recognized as free */
 static bool add_free_nid(struct f2fs_sb_info *sbi,
 				nid_t nid, bool build, bool update)
@@ -1961,14 +1920,6 @@ static bool add_free_nid(struct f2fs_sb_info *sbi,
 	/* 0 nid should not be used */
 	if (unlikely(nid == 0))
 		return false;
-
-	i = f2fs_kmem_cache_alloc(free_nid_slab, GFP_NOFS);
-	i->nid = nid;
-	i->state = FREE_NID;
-
-	radix_tree_preload(GFP_NOFS | __GFP_NOFAIL);
-
-	spin_lock(&nm_i->nid_list_lock);
 
 	i = f2fs_kmem_cache_alloc(free_nid_slab, GFP_NOFS);
 	i->nid = nid;
