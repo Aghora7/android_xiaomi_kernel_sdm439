@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -164,11 +164,9 @@ static int cam_bps_handle_pc(struct cam_hw_info *bps_dev)
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0x1);
 
-		if ((pwr_status >> BPS_PWR_ON_MASK)) {
-			CAM_ERR(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+		if ((pwr_status >> BPS_PWR_ON_MASK))
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
 				pwr_status, pwr_ctrl);
-			return -EINVAL;
-		}
 	}
 	cam_bps_get_gdsc_control(soc_info);
 	cam_cpas_reg_read(core_info->cpas_handle,
@@ -302,6 +300,7 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_bps_device_core_info *core_info = NULL;
 	struct cam_bps_device_hw_info *hw_info = NULL;
 	int rc = 0;
+	unsigned long flags;
 
 	if (!device_priv) {
 		CAM_ERR(CAM_ICP, "Invalid arguments");
@@ -349,7 +348,11 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_BPS_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			cam_cpas_stop(core_info->cpas_handle);
+			rc = cam_cpas_stop(core_info->cpas_handle);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "cpas stop failed %d", rc);
+				return rc;
+			}
 			core_info->cpas_start = false;
 		}
 		break;
@@ -391,12 +394,16 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		break;
 	case CAM_ICP_BPS_CMD_DISABLE_CLK:
+		spin_lock_irqsave(&bps_dev->hw_lock, flags);
 		if (core_info->clk_enable == true)
 			cam_bps_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
+		spin_unlock_irqrestore(&bps_dev->hw_lock, flags);
 		break;
 	case CAM_ICP_BPS_CMD_RESET:
+		spin_lock_irqsave(&bps_dev->hw_lock, flags);
 		rc = cam_bps_cmd_reset(soc_info, core_info);
+		spin_unlock_irqrestore(&bps_dev->hw_lock, flags);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);

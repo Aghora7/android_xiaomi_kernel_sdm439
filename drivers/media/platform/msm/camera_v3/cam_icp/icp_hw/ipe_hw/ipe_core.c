@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,6 +78,7 @@ int cam_ipe_init_hw(void *device_priv,
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
@@ -162,7 +163,8 @@ static int cam_ipe_handle_pc(struct cam_hw_info *ipe_dev)
 			hw_info->pwr_ctrl, true, 0x1);
 
 		if (pwr_status >> IPE_PWR_ON_MASK)
-			return -EINVAL;
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+				pwr_status, pwr_ctrl);
 
 	}
 	cam_ipe_get_gdsc_control(soc_info);
@@ -298,6 +300,7 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_ipe_device_core_info *core_info = NULL;
 	struct cam_ipe_device_hw_info *hw_info = NULL;
 	int rc = 0;
+	unsigned long flags;
 
 	if (!device_priv) {
 		CAM_ERR(CAM_ICP, "Invalid arguments");
@@ -340,7 +343,11 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_IPE_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			cam_cpas_stop(core_info->cpas_handle);
+			rc = cam_cpas_stop(core_info->cpas_handle);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "CPAS stop failed %d", rc);
+				return rc;
+			}
 			core_info->cpas_start = false;
 		}
 		break;
@@ -382,12 +389,16 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		break;
 	case CAM_ICP_IPE_CMD_DISABLE_CLK:
+		spin_lock_irqsave(&ipe_dev->hw_lock, flags);
 		if (core_info->clk_enable == true)
 			cam_ipe_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
+		spin_unlock_irqrestore(&ipe_dev->hw_lock, flags);
 		break;
 	case CAM_ICP_IPE_CMD_RESET:
+		spin_lock_irqsave(&ipe_dev->hw_lock, flags);
 		rc = cam_ipe_cmd_reset(soc_info, core_info);
+		spin_unlock_irqrestore(&ipe_dev->hw_lock, flags);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);
